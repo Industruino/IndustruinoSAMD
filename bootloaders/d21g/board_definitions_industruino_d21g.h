@@ -1,6 +1,7 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
   Copyright (c) 2015 Atmel Corporation/Thibaut VIARD.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -23,7 +24,7 @@
 /*
  * USB device definitions
  */
-#define STRING_PRODUCT "Arduino Zero"
+#define STRING_PRODUCT "Industruino D21G"
 #define USB_VID_HIGH   0x23
 #define USB_VID_LOW    0x41
 #define USB_PID_HIGH   0x00

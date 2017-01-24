@@ -1,6 +1,7 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
   Copyright (c) 2015 Atmel Corporation/Thibaut VIARD.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -17,8 +18,8 @@
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#if defined(BOARD_ID_arduino_zero)
-  #include "board_definitions_arduino_zero.h"
+#if defined(BOARD_ID_industruino_d21g)
+  #include "board_definitions_industruino_d21g.h"
 #else
   #error You must define a BOARD_ID and add the corresponding definitions in board_definitions.h
 #endif
@@ -27,4 +28,3 @@
 // ------------------
 
 #define BOOT_PIN_MASK (1U << (BOOT_LOAD_PIN & 0x1f))
-
