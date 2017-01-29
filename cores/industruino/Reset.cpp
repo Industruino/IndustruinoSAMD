@@ -1,5 +1,6 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -31,7 +32,7 @@ extern const uint32_t __text_start__;
 #define APP_START ((volatile uint32_t)(&__text_start__) + 4)
 
 #else
-#define APP_START 0x00002004
+#define APP_START 0x00004004
 #endif
 
 static inline bool nvmReady(void) {

@@ -1,5 +1,6 @@
 /*
   Copyright (c) 2014-2015 Arduino LLC.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -25,7 +26,7 @@
  */
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x00000000+0x2000, LENGTH = 0x00040000-0x2000 /* First 8KB used by bootloader */
+  FLASH (rx) : ORIGIN = 0x00000000+0x4000, LENGTH = 0x00040000-0x4000 /* First 16KB used by bootloader */
   RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00008000
 }
 

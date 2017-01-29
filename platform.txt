@@ -133,9 +133,9 @@ tools.avrdude_remote.upload.pattern=/usr/bin/XXX-run-avrdude /tmp/sketch.hex
 #
 # BOSSA
 #
-tools.bossac.path={runtime.tools.bossac-1.7.0.path}
-tools.bossac.cmd=bossac
-tools.bossac.cmd.windows=bossac.exe
+tools.bossac.path={runtime.tools.bossac-1.7.0-industruino.path}
+tools.bossac.cmd=bossac-0x4000
+tools.bossac.cmd.windows=bossac-0x4000.exe
 
 tools.bossac.upload.params.verbose=-i -d
 tools.bossac.upload.params.quiet=
@@ -153,7 +153,7 @@ tools.openocd.cmd.windows=bin/openocd.exe
 
 tools.openocd.upload.params.verbose=-d2
 tools.openocd.upload.params.quiet=-d0
-tools.openocd.upload.pattern="{path}/{cmd}" {upload.verbose} -s "{path}/share/openocd/scripts/" -f "{runtime.platform.path}/variants/{build.variant}/{build.openocdscript}" -c "telnet_port disabled; program {{{build.path}/{build.project_name}.bin}} verify reset 0x2000; shutdown"
+tools.openocd.upload.pattern="{path}/{cmd}" {upload.verbose} -s "{path}/share/openocd/scripts/" -f "{runtime.platform.path}/variants/{build.variant}/{build.openocdscript}" -c "telnet_port disabled; program {{{build.path}/{build.project_name}.bin}} verify reset 0x4000; shutdown"
 
 # Program flashes the binary at 0x0000, so use the linker script without_bootloader
 tools.openocd.program.params.verbose=-d2
@@ -166,7 +166,7 @@ tools.openocd.erase.pattern=
 
 tools.openocd.bootloader.params.verbose=-d2
 tools.openocd.bootloader.params.quiet=-d0
-tools.openocd.bootloader.pattern="{path}/{cmd}" {bootloader.verbose} -s "{path}/share/openocd/scripts/" -f "{runtime.platform.path}/variants/{build.variant}/{build.openocdscript}" -c "telnet_port disabled; init; halt; at91samd bootloader 0; program {{{runtime.platform.path}/bootloaders/{bootloader.file}}} verify reset; shutdown"
+tools.openocd.bootloader.pattern="{path}/{cmd}" {bootloader.verbose} -s "{path}/share/openocd/scripts/" -f "{runtime.platform.path}/variants/{build.variant}/{build.openocdscript}" -c "telnet_port disabled; init; halt; flash erase_address 0x00004000 0x00004000; at91samd bootloader 0; program {{{runtime.platform.path}/bootloaders/{bootloader.file}}} verify; at91samd bootloader 16384; reset; shutdown"
 
 #
 # OpenOCD sketch upload - version with configurable bootloader size
