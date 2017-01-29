@@ -1,3 +1,6 @@
+.DS_Store
+.Spotlight-V100
+.Trashes
 *.bz2
 
 bootloaders/*/build/
