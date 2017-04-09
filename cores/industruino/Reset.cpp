@@ -67,6 +67,14 @@ reset:
 	while (true);
 }
 
+void immediateReset() {
+	// Disable all interrupts
+	__disable_irq();
+
+	// Reset the device
+	NVIC_SystemReset() ;
+}
+
 static int ticks = -1;
 
 void initiateReset(int _ticks) {

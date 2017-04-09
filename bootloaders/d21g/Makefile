@@ -58,10 +58,13 @@ SIZE=$(ARM_GCC_PATH)size
 # -----------------------------------------------------------------------------
 # Boards definitions
 BOARD_ID?=arduino_zero
+SAM_BA_INTERFACE?=SAM_BA_BOTH_INTERFACES
+SAM_BA_NET_INTERFACE?=SAM_BA_NET_TFTP
+ETHERNET_CHIP?=WIZNET_W5500
 
 # -----------------------------------------------------------------------------
 # Compiler options
-CFLAGS_EXTRA=-D__SAMD21G18A__ -DBOARD_ID_$(BOARD_ID)
+CFLAGS_EXTRA=-D__SAMD21G18A__ -DBOARD_ID_$(BOARD_ID) -DSAM_BA_INTERFACE=$(SAM_BA_INTERFACE) -DSAM_BA_NET_INTERFACE=$(SAM_BA_NET_INTERFACE) -DETHERNET_CHIP=$(ETHERNET_CHIP)
 CFLAGS=-mthumb -mcpu=cortex-m0plus -Wall -c -std=gnu99 -ffunction-sections -fdata-sections -nostdlib -nostartfiles --param max-inline-insns-single=500
 ifdef DEBUG
   CFLAGS+=-g3 -O1 -DDEBUG=1
@@ -89,11 +92,19 @@ SOURCES= \
   board_driver_usb.c \
   board_init.c \
   board_startup.c \
+  fram.c \
   main.c \
+  netcfg.c \
+  networking.c \
   sam_ba_usb.c \
   sam_ba_cdc.c \
   sam_ba_monitor.c \
-  sam_ba_serial.c
+  sam_ba_serial.c \
+  sdcard.c \
+  spi.c \
+  tftp.c \
+  utils.c \
+  w5x00.c
 
 OBJECTS=$(addprefix $(BUILD_PATH)/, $(SOURCES:.c=.o))
 DEPS=$(addprefix $(BUILD_PATH)/, $(SOURCES:.c=.d))

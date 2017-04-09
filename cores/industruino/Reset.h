@@ -22,6 +22,7 @@
 extern "C" {
 #endif
 
+void immediateReset();
 void initiateReset(int ms);
 void tickReset();
 void cancelReset();

@@ -18,8 +18,10 @@
 # Industruino D21G
 # ----------------
 industruino_d21g.name=Industruino D21G
-industruino_d21g.vid.0=0x2341
+industruino_d21g.vid.0=0x2E78
 industruino_d21g.pid.0=0x804d
+industruino_d21g.vid.1=0x2E78
+industruino_d21g.pid.1=0x004d
 
 industruino_d21g.upload.tool=bossac
 industruino_d21g.upload.protocol=sam-ba
@@ -30,7 +32,7 @@ industruino_d21g.upload.native_usb=true
 industruino_d21g.build.mcu=cortex-m0plus
 industruino_d21g.build.f_cpu=48000000L
 industruino_d21g.build.usb_product="Industruino D21G"
-industruino_d21g.build.usb_manufacturer="Industruino"
+industruino_d21g.build.usb_manufacturer="ES Gear Ltd."
 industruino_d21g.build.board=SAMD_INDUSTRUINO_D21G
 industruino_d21g.build.core=industruino
 industruino_d21g.build.extra_flags=-D__SAMD21G18A__ {build.usb_flags}
@@ -38,7 +40,7 @@ industruino_d21g.build.ldscript=linker_scripts/gcc/flash_with_bootloader.ld
 industruino_d21g.build.openocdscript=openocd_scripts/industruino_d21g.cfg
 industruino_d21g.build.variant=industruino_d21g
 industruino_d21g.build.variant_system_lib=
-industruino_d21g.build.vid=0x2341
+industruino_d21g.build.vid=0x2E78
 industruino_d21g.build.pid=0x804d
 industruino_d21g.bootloader.tool=openocd
 industruino_d21g.bootloader.file=d21g/samd21_sam_ba_industruino_d21g.bin

@@ -1,5 +1,9 @@
 ;
 ; Copyright 2016 Arduino LLC (http://www.arduino.cc/)
+; Copyright (C) 2017  Industruino <connect@industruino.com>
+;
+; Developed by Zach Eveland, Blacklabel Development, Inc.
+; Adapted for Industruino by Claudio Indellicati
 ;
 ; Arduino is free software; you can redistribute it and/or modify
 ; it under the terms of the GNU General Public License as published by
@@ -26,16 +30,14 @@
 ;
 
 [Strings]
-DriverPackageDisplayName="Genuino USB Driver (for SAMD boards)"
-ManufacturerName="Arduino LLC (www.arduino.cc)"
+DriverPackageDisplayName="Industruino USB Driver"
+ManufacturerName="ES Gear Ltd. (industruino.com)"
 ServiceName="USB RS-232 Emulation Driver"
-mkr1000.sketch.name="Genuino MKR1000"
-mkr1000.bootloader.name="Genuino MKR1000 bootloader"
-zero.sketch.name="Genuino Zero"
-zero.bootloader.name="Genuino Zero bootloader"
+d21g.sketch.name="Industruino D21G"
+d21g.bootloader.name="Industruino D21G bootloader"
 
 [DefaultInstall]
-CopyINF=genuino-samd.inf
+CopyINF=industruino.inf
 
 [Version]
 Class=Ports
@@ -43,9 +45,9 @@ ClassGuid={4D36E978-E325-11CE-BFC1-08002BE10318}
 Signature="$Windows NT$"
 Provider=%ManufacturerName%
 DriverPackageDisplayName=%DriverPackageDisplayName%
-CatalogFile=genuino-samd.cat
+; CatalogFile=industruino.cat
 ; DriverVer date is MM/DD/YYYY
-DriverVer=02/11/2016,1.0.0.0
+DriverVer=04/05/2017,0.0.1.0
 
 [Manufacturer]
 %ManufacturerName%=DeviceList, NTamd64, NTia64
@@ -55,22 +57,16 @@ FakeModemCopyFileSection=12
 DefaultDestDir=12
 
 [DeviceList]
-%mkr1000.sketch.name%=DriverInstall, USB\VID_2341&PID_824E&MI_00
-%mkr1000.bootloader.name%=DriverInstall, USB\VID_2341&PID_024E
-%zero.sketch.name%=DriverInstall, USB\VID_2341&PID_824D&MI_00
-%zero.bootloader.name%=DriverInstall, USB\VID_2341&PID_024D
+%d21g.sketch.name%=DriverInstall, USB\VID_2E78&PID_804D&MI_00
+%d21g.bootloader.name%=DriverInstall, USB\VID_2E78&PID_004D
 
 [DeviceList.NTamd64]
-%mkr1000.sketch.name%=DriverInstall, USB\VID_2341&PID_824E&MI_00
-%mkr1000.bootloader.name%=DriverInstall, USB\VID_2341&PID_024E
-%zero.sketch.name%=DriverInstall, USB\VID_2341&PID_824D&MI_00
-%zero.bootloader.name%=DriverInstall, USB\VID_2341&PID_024D
+%d21g.sketch.name%=DriverInstall, USB\VID_2E78&PID_804D&MI_00
+%d21g.bootloader.name%=DriverInstall, USB\VID_2E78&PID_004D
 
 [DeviceList.NTia64]
-%mkr1000.sketch.name%=DriverInstall, USB\VID_2341&PID_824E&MI_00
-%mkr1000.bootloader.name%=DriverInstall, USB\VID_2341&PID_024E
-%zero.sketch.name%=DriverInstall, USB\VID_2341&PID_824D&MI_00
-%zero.bootloader.name%=DriverInstall, USB\VID_2341&PID_024D
+%d21g.sketch.name%=DriverInstall, USB\VID_2E78&PID_804D&MI_00
+%d21g.bootloader.name%=DriverInstall, USB\VID_2E78&PID_004D
 
 [DriverInstall]
 include=mdmcpq.inf,usb.inf
@@ -78,8 +74,8 @@ CopyFiles = FakeModemCopyFileSection
 AddReg=DriverAddReg
 
 [DriverAddReg]
-HKR,,DevLoader,,*ntkern 
-HKR,,NTMPDriver,,usbser.sys 
+HKR,,DevLoader,,*ntkern
+HKR,,NTMPDriver,,usbser.sys
 HKR,,EnumPropPages32,,"MsPorts.dll,SerialPortPropPageProvider"
 
 [DriverInstall.Services]
@@ -93,4 +89,3 @@ StartType=3
 ErrorControl=1
 ServiceBinary=%12%\usbser.sys
 LoadOrderGroup=Base
-

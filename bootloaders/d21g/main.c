@@ -1,6 +1,7 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
   Copyright (c) 2015 Atmel Corporation/Thibaut VIARD.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -25,15 +26,17 @@
 #include "board_driver_led.h"
 #include "sam_ba_usb.h"
 #include "sam_ba_cdc.h"
+#include "tftp.h"
+#include "utils.h"
 
-extern uint32_t __sketch_vectors_ptr; // Exported value from linker script
 extern void board_init(void);
 
-#if (defined DEBUG) && (DEBUG == 1)
-volatile uint32_t* pulSketch_Start_Address;
-#endif
-
 static volatile bool main_b_cdc_enable = false;
+
+static bool exitBootloaderAfterTimeout = true;
+static bool usbCdcEnabled = false;
+
+static bool ethernetModuleEnabled;
 
 /**
  * \brief Check the application startup condition
@@ -41,12 +44,15 @@ static volatile bool main_b_cdc_enable = false;
  */
 static void check_start_application(void)
 {
+#if defined(REBOOT_STATUS_ADDRESS)
+  if (PM->RCAUSE.bit.POR)
+     REBOOT_STATUS_VALUE = REBOOT_STATUS_UNDEFINED;
+  else if (REBOOT_STATUS_VALUE == REBOOT_STATUS_START_APP)
+    jumpToApplication();
+#endif
+
 //  LED_init();
 //  LED_off();
-
-#if (!defined DEBUG) || ((defined DEBUG) && (DEBUG == 0))
-uint32_t* pulSketch_Start_Address;
-#endif
 
   /*
    * Test sketch stack pointer @ &__sketch_vectors_ptr
@@ -55,17 +61,10 @@ uint32_t* pulSketch_Start_Address;
   if (__sketch_vectors_ptr == 0xFFFFFFFF)
   {
     /* Stay in bootloader */
+    exitBootloaderAfterTimeout = false;
+    usbCdcEnabled = true;
     return;
   }
-
-  /*
-   * Load the sketch Reset Handler address
-   * __sketch_vectors_ptr is exported from linker script and point on first 32b word of sketch vector table
-   * First 32b word is sketch stack
-   * Second 32b word is sketch entry point: Reset_Handler()
-   */
-  pulSketch_Start_Address = &__sketch_vectors_ptr ;
-  pulSketch_Start_Address++ ;
 
   /*
    * Test vector table address of sketch @ &__sketch_vectors_ptr
@@ -74,27 +73,25 @@ uint32_t* pulSketch_Start_Address;
   if ( ((uint32_t)(&__sketch_vectors_ptr) & ~SCB_VTOR_TBLOFF_Msk) != 0x00)
   {
     /* Stay in bootloader */
+    exitBootloaderAfterTimeout = false;
+    usbCdcEnabled = true;
     return;
   }
 
-#if defined(BOOT_DOUBLE_TAP_ADDRESS)
-  #define DOUBLE_TAP_MAGIC 0x07738135
-  if (PM->RCAUSE.bit.POR)
+#if defined(REBOOT_STATUS_ADDRESS)
+  if (!PM->RCAUSE.bit.POR)
   {
-    /* On power-on initialize double-tap */
-    BOOT_DOUBLE_TAP_DATA = 0;
-  }
-  else
-  {
-    if (BOOT_DOUBLE_TAP_DATA == DOUBLE_TAP_MAGIC)
+    if (REBOOT_STATUS_VALUE == REBOOT_STATUS_DOUBLE_TAP_MAGIC)
     {
       /* Second tap, stay in bootloader */
-      BOOT_DOUBLE_TAP_DATA = 0;
+      REBOOT_STATUS_VALUE = REBOOT_STATUS_UNDEFINED;
+      exitBootloaderAfterTimeout = false;
+      usbCdcEnabled = true;
       return;
     }
 
     /* First tap */
-    BOOT_DOUBLE_TAP_DATA = DOUBLE_TAP_MAGIC;
+    REBOOT_STATUS_VALUE = REBOOT_STATUS_DOUBLE_TAP_MAGIC;
 
     /* Wait 0.5sec to see if the user tap reset again.
      * The loop value is based on SAMD21 default 1MHz clock @ reset.
@@ -104,9 +101,15 @@ uint32_t* pulSketch_Start_Address;
       __asm__ __volatile__("");
 
     /* Timeout happened, continue boot... */
-    BOOT_DOUBLE_TAP_DATA = 0;
+    REBOOT_STATUS_VALUE = REBOOT_STATUS_UNDEFINED;
   }
 #endif
+
+  if (!ethernetModuleEnabled)
+     jumpToApplication();
+
+  exitBootloaderAfterTimeout = true;
+  usbCdcEnabled = false;
 
 /*
 #if defined(BOOT_LOAD_PIN)
@@ -130,15 +133,6 @@ uint32_t* pulSketch_Start_Address;
 */
 
 //  LED_on();
-
-  /* Rebase the Stack Pointer */
-  __set_MSP( (uint32_t)(__sketch_vectors_ptr) );
-
-  /* Rebase the vector table base address */
-  SCB->VTOR = ((uint32_t)(&__sketch_vectors_ptr) & SCB_VTOR_TBLOFF_Msk);
-
-  /* Jump to application Reset Handler in the application */
-  asm("bx %0"::"r"(*pulSketch_Start_Address));
 }
 
 #if DEBUG_ENABLE
@@ -155,8 +149,13 @@ uint32_t* pulSketch_Start_Address;
  */
 int main(void)
 {
+  /* Read the configuration pin */
+  PORT->Group[ETHERNET_MODULE_ENABLE_PORT].DIRCLR.reg = (1 << ETHERNET_MODULE_ENABLE_PIN);
+  PORT->Group[ETHERNET_MODULE_ENABLE_PORT].PINCFG[ETHERNET_MODULE_ENABLE_PIN].reg = PORT_PINCFG_INEN;
+  ethernetModuleEnabled = (PORT->Group[ETHERNET_MODULE_ENABLE_PORT].IN.reg & (1 << ETHERNET_MODULE_ENABLE_PIN) ? true : false);
+
 #if SAM_BA_INTERFACE == SAM_BA_USBCDC_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
-  P_USB_CDC pCdc;
+  P_USB_CDC pCdc = NULL;
 #endif
   DEBUG_PIN_HIGH;
 
@@ -174,7 +173,11 @@ int main(void)
 #endif
 
 #if SAM_BA_INTERFACE == SAM_BA_USBCDC_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
-  pCdc = usb_init();
+  if(usbCdcEnabled) pCdc = usb_init();
+#endif
+
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+  bool tftpIsEnabled = (ethernetModuleEnabled ? tftpInit() : false);
 #endif
 
   DEBUG_PIN_LOW;
@@ -186,14 +189,16 @@ int main(void)
   LEDTX_init();
   LEDTX_off();
 
-  /* Start the sys tick (1 ms) */
+  /* Start the sys tick (1/48th of a millisecond) */
   SysTick_Config(1000);
+
+  uint64_t bootloaderExitTime = millis() + BOOTLOADER_MAX_RUN_TIME;
 
   /* Wait for a complete enum on usb or a '#' char on serial line */
   while (1)
   {
 #if SAM_BA_INTERFACE == SAM_BA_USBCDC_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
-    if (pCdc->IsConfigured(pCdc) != 0)
+    if (usbCdcEnabled && (pCdc->IsConfigured(pCdc) != 0))
     {
       main_b_cdc_enable = true;
     }
@@ -201,12 +206,13 @@ int main(void)
     /* Check if a USB enumeration has succeeded and if comm port has been opened */
     if (main_b_cdc_enable)
     {
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+      if (tftpIsEnabled) tftpEnd();
+#endif
       sam_ba_monitor_init(SAM_BA_INTERFACE_USBCDC);
+
       /* SAM-BA on USB loop */
-      while( 1 )
-      {
-        sam_ba_monitor_run();
-      }
+      sam_ba_monitor_run(exitBootloaderAfterTimeout);
     }
 #endif
 
@@ -214,19 +220,53 @@ int main(void)
     /* Check if a '#' has been received */
     if (!main_b_cdc_enable && serial_sharp_received())
     {
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+      if (tftpIsEnabled) tftpEnd();
+#endif
       sam_ba_monitor_init(SAM_BA_INTERFACE_USART);
+
       /* SAM-BA on Serial loop */
-      while(1)
+      sam_ba_monitor_run(exitBootloaderAfterTimeout);
+    }
+#endif
+
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+    if (tftpIsEnabled)
+    {
+      int8_t tftpStatus = tftpRun();
+
+      /* Check if a TFTP write request has been received */
+      if (!main_b_cdc_enable && (tftpReceivedRequest() == TFTP_RXRQ_WRQ))
       {
-        sam_ba_monitor_run();
+        tftpSendResponse(tftpStatus);
+
+        sam_ba_monitor_init(SAM_BA_NET_TFTP);
+
+        /* SAM-BA on TFTP loop */
+        sam_ba_monitor_run(exitBootloaderAfterTimeout);
+      }
+      else
+      {
+        tftpSendResponse(tftpStatus);
+
+        if (TFTP_IS_ERROR_STATUS(tftpStatus))
+        {
+          tftpEnd();
+          NVIC_SystemReset();
+        }
       }
     }
 #endif
+
+    if (exitBootloaderAfterTimeout && (millis() > bootloaderExitTime))
+      startApplication();
   }
 }
 
 void SysTick_Handler(void)
 {
+  ++tickCount;
+
   LED_pulse();
 
   sam_ba_monitor_sys_tick();

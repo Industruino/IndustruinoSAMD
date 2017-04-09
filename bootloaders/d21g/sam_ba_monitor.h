@@ -1,6 +1,7 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
   Copyright (c) 2015 Atmel Corporation/Thibaut VIARD.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -20,15 +21,23 @@
 #ifndef _MONITOR_SAM_BA_H_
 #define _MONITOR_SAM_BA_H_
 
+#include <stdbool.h>
+
 #define SAM_BA_VERSION              "2.0"
 
 /* Enable the interfaces to save code size */
 #define SAM_BA_BOTH_INTERFACES      0
 #define SAM_BA_UART_ONLY            1
 #define SAM_BA_USBCDC_ONLY          2
+#define SAM_BA_NET_NONE             3
+#define SAM_BA_NET_TFTP             4
 
 #ifndef SAM_BA_INTERFACE
 #define SAM_BA_INTERFACE    SAM_BA_BOTH_INTERFACES
+#endif
+
+#ifndef SAM_BA_NET_INTERFACE
+#define SAM_BA_NET_INTERFACE    SAM_BA_NET_NONE
 #endif
 
 /* Selects USB as the communication interface of the monitor */
@@ -38,6 +47,9 @@
 
 /* Selects USB as the communication interface of the monitor */
 #define SIZEBUFMAX                  64
+
+#define APP_FLASH_MEMORY_START_PTR  ((uint32_t *) &__sketch_vectors_ptr)
+#define APP_FLASH_MEMORY_START_ADDR ((uint32_t) &__sketch_vectors_ptr)
 
 /**
  * \brief Initialize the monitor
@@ -55,7 +67,7 @@ void sam_ba_monitor_sys_tick(void);
  * \brief Main function of the SAM-BA Monitor
  *
  */
-void sam_ba_monitor_run(void);
+void sam_ba_monitor_run(bool exitAfterTimeout);
 
 /**
  * \brief

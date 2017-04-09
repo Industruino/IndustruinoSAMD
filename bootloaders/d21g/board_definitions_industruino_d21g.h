@@ -24,20 +24,37 @@
 /*
  * USB device definitions
  */
-#define STRING_PRODUCT "Industruino D21G"
-#define USB_VID_HIGH   0x23
-#define USB_VID_LOW    0x41
+#define STRING_MANUFACTURER "ES Gear Ltd."
+#define STRING_PRODUCT      "Industruino D21G"
+
+#define USB_VID_HIGH   0x2E
+#define USB_VID_LOW    0x78
 #define USB_PID_HIGH   0x00
 #define USB_PID_LOW    0x4D
 
 /*
- * If BOOT_DOUBLE_TAP_ADDRESS is defined the bootloader is started by
- * quickly tapping two times on the reset button.
- * BOOT_DOUBLE_TAP_ADDRESS must point to a free SRAM cell that must not
+ * REBOOT_STATUS_ADDRESS must point to a free SRAM cell that must not
  * be touched from the loaded application.
  */
-#define BOOT_DOUBLE_TAP_ADDRESS           (0x20007FFCul)
-#define BOOT_DOUBLE_TAP_DATA              (*((volatile uint32_t *) BOOT_DOUBLE_TAP_ADDRESS))
+#define REBOOT_STATUS_ADDRESS  (0x20007FFCul)
+#define REBOOT_STATUS_VALUE    (*((volatile uint32_t *) REBOOT_STATUS_ADDRESS))
+
+/*
+ * REBOOT_STATUS_UNDEFINED
+ *    No specific action defined for the next warm reset.  This status is
+ *    assagned right after a cold reset or when no behaviour after the next warm
+ *    reset has been defined yet
+ *
+ * REBOOT_STATUS_DOUBLE_TAP_MAGIC
+ *    Quick two times tapping of the reset button detected: run the bootloader
+ *    until a successful programming of the FLASH memory has been completed
+ *
+ * REBOOT_STATUS_START_APP
+ *    Start the application right after the warm reset
+ */
+#define REBOOT_STATUS_UNDEFINED        (0)
+#define REBOOT_STATUS_DOUBLE_TAP_MAGIC (0x07738135)
+#define REBOOT_STATUS_START_APP        (0x63313669)
 
 /*
  * If BOOT_LOAD_PIN is defined the bootloader is started if the selected
@@ -71,12 +88,71 @@
  * LEDs definitions
  */
 #define BOARD_LED_PORT                    (0)
-#define BOARD_LED_PIN                     (17)
+#define BOARD_LED_PIN                     (20)
 
-#define BOARD_LEDRX_PORT                  (1)
-#define BOARD_LEDRX_PIN                   (3)
+#define BOARD_LEDRX_PORT                  (0)
+#define BOARD_LEDRX_PIN                   (20)
 
 #define BOARD_LEDTX_PORT                  (0)
-#define BOARD_LEDTX_PIN                   (27)
+#define BOARD_LEDTX_PIN                   (20)
+
+/*
+ * SPI definitions and configuration
+ */
+
+#define SPI_SERCOM                        SERCOM5
+#define SPI_PM_APBCMASK                   PM_APBCMASK_SERCOM5
+#define SPI_PER_CLOCK_ID                  GCLK_CLKCTRL_ID_SERCOM5_CORE_Val
+#define SPI_NVIC_ID                       SERCOM5_IRQn
+#define SPI_PERIPHERAL_MUX                (3U)           // (PIO_SERCOM_ALT, see 'WVariant.h', EPioType)
+#define SPI_MISO_PGROUP                   (1U)           // Port B (see 'WVariant.h')
+#define SPI_MISO_PIN                      (22U)          // PB22
+#define SPI_MOSI_PGROUP                   (1U)           // Port B (see 'WVariant.h')
+#define SPI_MOSI_PIN                      (23U)          // PB23
+#define SPI_SCK_PGROUP                    (0U)           // Port A (see 'WVariant.h')
+#define SPI_SCK_PIN                       (23U)          // PA23
+#define SPI_TX_PAD                        (2U)           // (SPI_PAD_3_SCK_1, see 'SERCOM.h', SercomSpiTXPad)
+#define SPI_RX_PAD                        (2U)           // (SERCOM_RX_PAD_2, see 'SERCOM.h', SercomRXPad)
+
+#define SPI_BITRATE                       (4000000UL)     // 4 MHz
+#define SPI_MAX_BITRATE                   (12000000UL)    // 12 MHz max, see 'SPI.h', SPI_MIN_CLOCK_DIVIDER
+#define SPI_MSB_FIRST                     (0U)            // MSB_FIRST, see 'SERCOM.h' (SercomDataOrder)
+#define SPI_LSB_FIRST                     (1U)            // LSB_FIRST, see 'SERCOM.h' (SercomDataOrder)
+#define SPI_DATA_ORDER                    SPI_MSB_FIRST
+#define SPI_CLOCK_MODE                    (0U)            // Mode 0 (SERCOM_SPI_MODE_0, see 'SERCOM.h', SercomSpiClockMode)
+#define SPI_CHAR_SIZE                     (0UL)           // 8 bits (SPI_CHAR_SIZE_8_BITS, see 'SERCOM.h', SercomSpiCharSize)
+
+/*
+ * Ethernet module/chip definitions
+ */
+
+#define ETHERNET_MODULE_ENABLE_PORT       (1U)    // Port B
+#define ETHERNET_MODULE_ENABLE_PIN        (11U)   // PB11
+
+// Wiznet Ethernet chip CS pin
+#define W5X00_CS_PORT                     (0U)   // Port A
+#define W5X00_CS_PIN                      (7U)   // PA07
+
+// FRAM chip CS pin
+#define FRAM_CS_PORT                      (1U)   // Port B
+#define FRAM_CS_PIN                       (9U)   // PB09
+
+// MB85RS64A - 64 K (8 K x 8) bit SPI FRAM
+#define FRAM_SIZE                         ((uint16_t)(0x2000))
+
+// SD card CS pin
+#define SDCARD_CS_PORT                    (1U)   // Port B
+#define SDCARD_CS_PIN                     (8U)   // PB08
+
+/*
+ * Networking configuration
+ */
+
+#define NETCFG_DEFAULT_MAC_ADDR           0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED
+#define NETCFG_DEFAULT_IP_ADDR            192, 168, 0, 200
+#define NETCFG_DEFAULT_NETWORK_MASK       255, 255, 255, 0
+#define NETCFG_DEFAULT_GATEWAY_ADDR       192, 168, 0, 1
+#define NETCFG_DEFAULT_TFTP_DATA_PORT     46969
+#define NETCFG_DEFAULT_PASSWORD           ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '   // 8 chars long (if shorter fill with spaces)
 
 #endif // _BOARD_DEFINITIONS_H_

@@ -1,6 +1,7 @@
 /*
   Copyright (c) 2015 Arduino LLC.  All right reserved.
   Copyright (c) 2015 Atmel Corporation/Thibaut VIARD.  All right reserved.
+  Copyright (C) 2017 Industruino <connect@industruino.com>  All right reserved.
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -26,6 +27,9 @@
 #include "sam_ba_usb.h"
 #include "sam_ba_cdc.h"
 #include "board_driver_led.h"
+#include "netcfg.h"
+#include "tftp.h"
+#include "utils.h"
 
 const char RomBOOT_Version[] = SAM_BA_VERSION;
 const char RomBOOT_ExtendedCapabilities[] = "[Arduino:XYZ]";
@@ -90,21 +94,29 @@ volatile bool b_sam_ba_interface_usart = false;
 volatile uint16_t txLEDPulse = 0; // time remaining for Tx LED pulse
 volatile uint16_t rxLEDPulse = 0; // time remaining for Rx LED pulse
 
-void sam_ba_monitor_init(uint8_t com_interface)
+static uint8_t com_interface = 0xFF;
+
+void sam_ba_monitor_init(uint8_t ci)
 {
 #if SAM_BA_INTERFACE == SAM_BA_UART_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
   //Selects the requested interface for future actions
-  if (com_interface == SAM_BA_INTERFACE_USART)
+  if (ci == SAM_BA_INTERFACE_USART)
   {
+    com_interface = ci;
     ptr_monitor_if = (t_monitor_if*) &uart_if;
     b_sam_ba_interface_usart = true;
   }
 #endif
 #if SAM_BA_INTERFACE == SAM_BA_USBCDC_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
-  if (com_interface == SAM_BA_INTERFACE_USBCDC)
+  if (ci == SAM_BA_INTERFACE_USBCDC)
   {
+    com_interface = ci;
     ptr_monitor_if = (t_monitor_if*) &usbcdc_if;
   }
+#endif
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+  if (ci == SAM_BA_NET_TFTP)
+    com_interface = ci;
 #endif
 }
 
@@ -245,7 +257,7 @@ uint8_t command, *ptr_data, *ptr, data[SIZEBUFMAX];
 uint8_t j;
 uint32_t u32tmp;
 
-uint32_t PAGE_SIZE, PAGES, MAX_FLASH;
+uint32_t PAGE_SIZE, PAGE_SIZE_IN_WORDS, PAGES, MAX_FLASH;
 
 // Prints a 32-bit integer in hex.
 static void put_uint32(uint32_t n)
@@ -262,10 +274,72 @@ static void put_uint32(uint32_t n)
   sam_ba_putdata( ptr_monitor_if, buff, 8);
 }
 
-static void sam_ba_monitor_loop(void)
+static void sam_ba_eraseflash(uint32_t dst_addr)
+{
+  // Note: the flash memory is erased in ROWS, that is in block of 4 pages.
+  //       Even if the starting address is the last byte of a ROW the entire
+  //       ROW is erased anyway.
+
+  while (dst_addr < MAX_FLASH)
+  {
+    // Execute "ER" Erase Row
+    NVMCTRL->ADDR.reg = dst_addr / 2;
+    NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_ER;
+    while (NVMCTRL->INTFLAG.bit.READY == 0)
+      ;
+    dst_addr += PAGE_SIZE * 4; // Skip a ROW
+  }
+}
+
+static void sam_ba_writetoflash(uint32_t *src_addr, uint32_t *dst_addr, uint32_t size)
+{
+  // Set automatic page write
+  NVMCTRL->CTRLB.bit.MANW = 0;
+
+  // Do writes in pages
+  while (size)
+  {
+    // Execute "PBC" Page Buffer Clear
+    NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_PBC;
+    while (NVMCTRL->INTFLAG.bit.READY == 0)
+      ;
+
+    // Fill page buffer
+    uint32_t i;
+    for (i=0; i<(PAGE_SIZE/4) && i<size; i++)
+    {
+      dst_addr[i] = src_addr[i];
+    }
+
+    // Execute "WP" Write Page
+    //NVMCTRL->ADDR.reg = ((uint32_t)dst_addr) / 2;
+    NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_WP;
+    while (NVMCTRL->INTFLAG.bit.READY == 0)
+      ;
+
+    // Advance to next page
+    dst_addr += i;
+    src_addr += i;
+    size     -= i;
+  }
+}
+
+static uint16_t sam_ba_calc_crc16(uint8_t *data, uint32_t size)
+{
+  uint16_t crc = 0U;
+
+  for (uint32_t i = 0UL; i < size; ++i)
+    crc = serial_add_crc(*(data++), crc);
+
+  return crc;
+}
+
+static bool sam_ba_monitor_loop(void)
 {
   length = sam_ba_getdata(ptr_monitor_if, data, SIZEBUFMAX);
   ptr = data;
+
+  bool dataReceived = (length != 0);
 
   for (i = 0; i < length; i++, ptr++)
   {
@@ -389,21 +463,7 @@ static void sam_ba_monitor_loop(void)
         // Syntax: X[ADDR]#
         // Erase the flash memory starting from ADDR to the end of flash.
 
-        // Note: the flash memory is erased in ROWS, that is in block of 4 pages.
-        //       Even if the starting address is the last byte of a ROW the entire
-        //       ROW is erased anyway.
-
-        uint32_t dst_addr = current_number; // starting address
-
-        while (dst_addr < MAX_FLASH)
-        {
-          // Execute "ER" Erase Row
-          NVMCTRL->ADDR.reg = dst_addr / 2;
-          NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_ER;
-          while (NVMCTRL->INTFLAG.bit.READY == 0)
-            ;
-          dst_addr += PAGE_SIZE * 4; // Skip a ROW
-        }
+        sam_ba_eraseflash(current_number);
 
         // Notify command completed
         sam_ba_putdata( ptr_monitor_if, "X\n\r", 3);
@@ -428,40 +488,7 @@ static void sam_ba_monitor_loop(void)
         }
         else
         {
-          // Write to flash
-          uint32_t size = current_number/4;
-          uint32_t *src_addr = src_buff_addr;
-          uint32_t *dst_addr = (uint32_t*)ptr_data;
-
-          // Set automatic page write
-          NVMCTRL->CTRLB.bit.MANW = 0;
-
-          // Do writes in pages
-          while (size)
-          {
-            // Execute "PBC" Page Buffer Clear
-            NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_PBC;
-            while (NVMCTRL->INTFLAG.bit.READY == 0)
-              ;
-
-            // Fill page buffer
-            uint32_t i;
-            for (i=0; i<(PAGE_SIZE/4) && i<size; i++)
-            {
-              dst_addr[i] = src_addr[i];
-            }
-
-            // Execute "WP" Write Page
-            //NVMCTRL->ADDR.reg = ((uint32_t)dst_addr) / 2;
-            NVMCTRL->CTRLA.reg = NVMCTRL_CTRLA_CMDEX_KEY | NVMCTRL_CTRLA_CMD_WP;
-            while (NVMCTRL->INTFLAG.bit.READY == 0)
-              ;
-
-            // Advance to next page
-            dst_addr += i;
-            src_addr += i;
-            size     -= i;
-          }
+          sam_ba_writetoflash(src_buff_addr, (uint32_t*)ptr_data, current_number / 4U);
         }
 
         // Notify command completed
@@ -478,10 +505,7 @@ static void sam_ba_monitor_loop(void)
 
         uint8_t *data = (uint8_t *)ptr_data;
         uint32_t size = current_number;
-        uint16_t crc = 0;
-        uint32_t i = 0;
-        for (i=0; i<size; i++)
-          crc = serial_add_crc(*data++, crc);
+        uint16_t crc = sam_ba_calc_crc16(data, size);
 
         // Send response
         sam_ba_putdata( ptr_monitor_if, "Z", 1);
@@ -523,6 +547,129 @@ static void sam_ba_monitor_loop(void)
       }
     }
   }
+
+  return dataReceived;
+}
+
+// Exported value from linker script
+extern uint32_t __sketch_vectors_ptr;
+
+static uint32_t *flashProgrammingPtr;
+static bool waitingForPassword = true, waitingForCrc = true;
+static uint16_t receivedCrc16 = 0U;
+static uint32_t imageSize = 0UL;
+
+static bool sam_ba_monitor_loop_tftp(void)
+{
+   bool dataReceived = false;
+
+   int8_t tftpStatus = tftpRun();
+
+   if (tftpStatus == TFTP_STATUS_NO_TRAFFIC)
+      return dataReceived;
+
+   if (!TFTP_IS_ERROR_STATUS(tftpStatus) && tftpReceivedRequest() == TFTP_RXRQ_WRQ)
+   {
+      if (waitingForPassword)
+      {
+         char receivedPassword[NETCFG_PASSWORD_SIZE];
+
+         if (tftpGetReceivedBytes((uint8_t *) receivedPassword, NETCFG_PASSWORD_SIZE))
+         {
+            if (memcmp(receivedPassword, netcfgData.password, NETCFG_PASSWORD_SIZE))
+               tftpStatus = TFTP_STATUS_ERROR_PASSWORD;
+            else
+               waitingForPassword = false;
+         }
+         else
+            tftpStatus = TFTP_STATUS_ERROR_BAD_IMAGE;
+      }
+
+      if (!TFTP_IS_ERROR_STATUS(tftpStatus) && waitingForCrc)
+      {
+         uint8_t receivedByte;
+
+         if (tftpGetReceivedBytes(&receivedByte, 1))
+         {
+            receivedCrc16 = receivedByte << 8;
+
+            if (tftpGetReceivedBytes(&receivedByte, 1))
+            {
+               receivedCrc16 |= receivedByte;
+               waitingForCrc = false;
+            }
+            else
+               tftpStatus = TFTP_STATUS_ERROR_BAD_IMAGE;
+         }
+         else
+            tftpStatus = TFTP_STATUS_ERROR_BAD_IMAGE;
+      }
+
+      if (!TFTP_IS_ERROR_STATUS(tftpStatus))
+      {
+         uint8_t pageBuffer[PAGE_SIZE];
+
+         while (tftpGetReceivedWords(pageBuffer, PAGE_SIZE_IN_WORDS))
+         {
+            dataReceived = true;
+            sam_ba_writetoflash((uint32_t *) pageBuffer, flashProgrammingPtr, PAGE_SIZE_IN_WORDS);
+            flashProgrammingPtr += PAGE_SIZE_IN_WORDS;
+            imageSize += PAGE_SIZE;
+         }
+
+         if (flashProgrammingPtr - APP_FLASH_MEMORY_START_PTR >= MAX_FLASH)
+            tftpStatus = TFTP_STATUS_ERROR_FULL;
+
+         if (TFTP_IS_RX_COMPLETED(tftpStatus))
+         {
+            uint16_t lastWordsCount = tftpReceivedBytesCount() >> 2;
+
+            if (lastWordsCount)
+            {
+               tftpGetReceivedWords(pageBuffer, lastWordsCount);
+               imageSize += lastWordsCount << 2;
+
+               for (uint16_t idx = lastWordsCount << 2; idx < PAGE_SIZE; ++idx)
+                  pageBuffer[idx] = 0xFF;
+
+               dataReceived = true;
+               sam_ba_writetoflash((uint32_t *) pageBuffer, flashProgrammingPtr, PAGE_SIZE_IN_WORDS);
+               flashProgrammingPtr += PAGE_SIZE_IN_WORDS;
+
+               if (flashProgrammingPtr - APP_FLASH_MEMORY_START_PTR >= MAX_FLASH)
+                  tftpStatus = TFTP_STATUS_ERROR_FULL;
+            }
+
+            if (tftpReceivedBytesCount())
+               // Some bytes left, there should be none
+               tftpStatus = TFTP_STATUS_ERROR_BAD_IMAGE;
+            else
+            {
+               if (receivedCrc16 != sam_ba_calc_crc16((uint8_t *) APP_FLASH_MEMORY_START_PTR, imageSize))
+                  tftpStatus = TFTP_STATUS_ERROR_CRC;
+            }
+         }
+      }
+   }
+
+   if (tftpSendResponse(tftpStatus))
+      return dataReceived;
+
+   tftpEnd();
+
+   if (TFTP_IS_ERROR_STATUS(tftpStatus))
+   {
+      // An error occurred: erasing the flash before resetting the board
+      if (flashProgrammingPtr != APP_FLASH_MEMORY_START_PTR)
+         sam_ba_eraseflash(APP_FLASH_MEMORY_START_ADDR);
+
+      NVIC_SystemReset();
+   }
+
+   startApplication();
+
+   // Just to avoid a compiler warning...
+   for(;;);
 }
 
 void sam_ba_monitor_sys_tick(void)
@@ -537,17 +684,35 @@ void sam_ba_monitor_sys_tick(void)
 /**
  * \brief This function starts the SAM-BA monitor.
  */
-void sam_ba_monitor_run(void)
+void sam_ba_monitor_run(bool exitAfterTimeout)
 {
+  uint64_t exitTime = millis() + BOOTLOADER_MAX_RUN_TIME;
   uint32_t pageSizes[] = { 8, 16, 32, 64, 128, 256, 512, 1024 };
   PAGE_SIZE = pageSizes[NVMCTRL->PARAM.bit.PSZ];
+  PAGE_SIZE_IN_WORDS = PAGE_SIZE >> 2;
   PAGES = NVMCTRL->PARAM.bit.NVMP;
   MAX_FLASH = PAGE_SIZE * PAGES;
 
   ptr_data = NULL;
   command = 'z';
+
+  bool (*loopFunction)(void);
+
+  if (com_interface == SAM_BA_NET_TFTP)
+  {
+    flashProgrammingPtr = APP_FLASH_MEMORY_START_PTR;
+    sam_ba_eraseflash(APP_FLASH_MEMORY_START_ADDR);
+    loopFunction = sam_ba_monitor_loop_tftp;
+  }
+  else
+    loopFunction = sam_ba_monitor_loop;
+
   while (1)
   {
-    sam_ba_monitor_loop();
+    if (loopFunction())
+      exitAfterTimeout = false;
+
+    if (exitAfterTimeout && (millis() > exitTime))
+      startApplication();
   }
 }
