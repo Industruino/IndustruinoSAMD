@@ -45,7 +45,7 @@ static bool ethernetModuleEnabled;
 static void check_start_application(void)
 {
 #if defined(REBOOT_STATUS_ADDRESS)
-  if (PM->RCAUSE.bit.POR)
+  if (PM->RCAUSE.bit.POR || PM->RCAUSE.bit.BOD12 || PM->RCAUSE.bit.BOD33)
      REBOOT_STATUS_VALUE = REBOOT_STATUS_UNDEFINED;
   else if (REBOOT_STATUS_VALUE == REBOOT_STATUS_START_APP)
     jumpToApplication();
@@ -79,7 +79,7 @@ static void check_start_application(void)
   }
 
 #if defined(REBOOT_STATUS_ADDRESS)
-  if (!PM->RCAUSE.bit.POR)
+  if (PM->RCAUSE.bit.EXT)
   {
     if (REBOOT_STATUS_VALUE == REBOOT_STATUS_DOUBLE_TAP_MAGIC)
     {
