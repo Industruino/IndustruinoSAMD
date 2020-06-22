@@ -177,7 +177,8 @@ int main(void)
 #endif
 
 #if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
-  bool tftpIsEnabled = (ethernetModuleEnabled ? tftpInit() : false);
+  bool tftpInitializationNotStarted = true;
+  bool tftpIsEnabled = false;
 #endif
 
   DEBUG_PIN_LOW;
@@ -231,6 +232,18 @@ int main(void)
 #endif
 
 #if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+    if (tftpInitializationNotStarted && ethernetModuleEnabled)
+    {
+        tftpInit();
+        tftpInitializationNotStarted = false;
+    }
+
+    if (!tftpInitializationNotStarted && !tftpIsEnabled && ethernetModuleEnabled)
+    {
+        if (tftpIsReady())
+           tftpIsEnabled = tftpConfigure();
+    }
+
     if (tftpIsEnabled)
     {
       int8_t tftpStatus = tftpRun();

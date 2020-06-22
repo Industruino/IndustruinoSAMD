@@ -33,7 +33,9 @@
 #include <sam.h>
 
 
-bool netInit (void);
+void netInit (void);
+bool netIsReady (void);
+bool netConfigure (void);
 void netEnd (void);
 
 void netInitUdpSocket3 (uint16_t port);

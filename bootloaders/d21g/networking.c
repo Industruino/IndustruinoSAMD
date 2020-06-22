@@ -38,24 +38,29 @@
 #endif
 
 
-bool netInit (void)
+void netInit (void)
 {
    spiInit(SPI_BITRATE);
 
    sdcardInit();
    framInit();
+   w5x00Init();
 
-   if (w5x00Init())
-   {
-      netcfgInit();
+   netcfgInit();
+}
 
-      w5x00Config (netcfgData.macAddr,
-                   netcfgData.ipAddr,
-                   netcfgData.networkMask,
-                   netcfgData.gatewayAddr);
+bool netIsReady (void)
+{
+   return w5x00IsReady();
+}
 
+bool netConfigure (void)
+{
+   if (w5x00Configure(netcfgData.macAddr,
+                      netcfgData.ipAddr,
+                      netcfgData.networkMask,
+                      netcfgData.gatewayAddr))
       return true;
-   }
 
    spiEnd();
 

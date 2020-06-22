@@ -21,6 +21,8 @@
 #ifndef _BOARD_DEFINITIONS_H_
 #define _BOARD_DEFINITIONS_H_
 
+#define BOOTLOADER_MAX_RUN_TIME (7000ULL*48ULL)   // 7 seconds in system ticks
+
 /*
  * USB device definitions
  */
@@ -42,7 +44,7 @@
 /*
  * REBOOT_STATUS_UNDEFINED
  *    No specific action defined for the next warm reset.  This status is
- *    assagned right after a cold reset or when no behaviour after the next warm
+ *    assigned right after a cold reset or when no behaviour after the next warm
  *    reset has been defined yet
  *
  * REBOOT_STATUS_DOUBLE_TAP_MAGIC
@@ -129,9 +131,14 @@
 #define ETHERNET_MODULE_ENABLE_PORT       (1U)    // Port B
 #define ETHERNET_MODULE_ENABLE_PIN        (11U)   // PB11
 
-// Wiznet Ethernet chip CS pin
-#define W5X00_CS_PORT                     (0U)   // Port A
-#define W5X00_CS_PIN                      (7U)   // PA07
+// Wiznet Ethernet chip RESET and CS pin
+#define W5X00_USE_HARDWARE_RESET          true
+#define W5X00_RESET_PORT                  (0U)              // Port A
+#define W5X00_RESET_PIN                   (10U)             // PA10
+#define W5X00_RESET_LEVEL_HIGH            true              // Set this to 'false' if an Industruino Ethernet module revision < 5.0 is used
+#define W5X00_POST_RESET_DELAY            (2000ULL*48ULL)   // 2 seconds in system ticks
+#define W5X00_CS_PORT                     (0U)              // Port A
+#define W5X00_CS_PIN                      (7U)              // PA07
 
 // FRAM chip CS pin
 #define FRAM_CS_PORT                      (1U)   // Port B

@@ -50,7 +50,9 @@
 #define TFTP_IS_RX_COMPLETED(x) (x == TFTP_STATUS_RX_COMPLETED)
 
 
-bool tftpInit (void);
+void tftpInit (void);
+bool tftpIsReady (void);
+bool tftpConfigure (void);
 void tftpEnd (void);
 int8_t tftpRun (void);
 bool tftpSendResponse (int8_t status);

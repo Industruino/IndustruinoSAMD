@@ -146,9 +146,19 @@ bool tftpGetReceivedWords (uint8_t *bytesBuffer, uint16_t wordsNumber)
    return tftpGetReceivedBytes(bytesBuffer, wordsNumber << 2);
 }
 
-bool tftpInit (void)
+void tftpInit (void)
 {
-   if (netInit())
+   netInit();
+}
+
+bool tftpIsReady (void)
+{
+   return netIsReady();
+}
+
+bool tftpConfigure (void)
+{
+   if (netConfigure())
    {
       receivedRequest = TFTP_RXRQ_NONE;
       netInitUdpSocket3(TFTP_PORT);

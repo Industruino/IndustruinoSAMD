@@ -42,7 +42,7 @@
 #define W5X00_REGISTER_BLOCK_SIZE 28
 uint8_t registerBuffer[W5X00_REGISTER_BLOCK_SIZE] =
 {
-   0x80,   // MR Mode - reset device
+   0x00,               // MR Mode
 
    0, 0, 0, 0,         // GWR Gateway IP Address Register
    0, 0, 0, 0,         // SUBR Subnet Mask Register
@@ -73,12 +73,66 @@ uint8_t registerBuffer[W5X00_REGISTER_BLOCK_SIZE] =
 #define W5X00_ASSERT_CS   PORT->Group[W5X00_CS_PORT].OUTCLR.reg=(1<<W5X00_CS_PIN)
 #define W5X00_DEASSERT_CS PORT->Group[W5X00_CS_PORT].OUTSET.reg=(1<<W5X00_CS_PIN)
 
+uint64_t w5x00ResetEndTime = 0xFFFFFFFFFFFFFFFF;
 
-bool w5x00Init()
+
+void w5x00Reset()
+{
+#if W5X00_USE_HARDWARE_RESET
+
+   //
+   //  Hardware reset
+   //
+
+   PORT->Group[W5X00_RESET_PORT].DIRSET.reg = (1<<W5X00_RESET_PIN);
+#if W5X00_RESET_LEVEL_HIGH
+   PORT->Group[W5X00_RESET_PORT].OUTCLR.reg = (1<<W5X00_RESET_PIN);
+   delay(2UL);
+   PORT->Group[W5X00_RESET_PORT].OUTSET.reg = (1<<W5X00_RESET_PIN);
+   delay(1UL);
+   PORT->Group[W5X00_RESET_PORT].OUTCLR.reg = (1<<W5X00_RESET_PIN);
+   delay(2UL);
+#else   // W5X00_RESET_LEVEL_HIGH
+   PORT->Group[W5X00_RESET_PORT].OUTSET.reg = (1<<W5X00_RESET_PIN);
+   delay(2UL);
+   PORT->Group[W5X00_RESET_PORT].OUTCLR.reg = (1<<W5X00_RESET_PIN);
+   delay(1UL);
+   PORT->Group[W5X00_RESET_PORT].OUTSET.reg = (1<<W5X00_RESET_PIN);
+   delay(2UL);
+#endif   // W5X00_RESET_LEVEL_HIGH
+
+#else   // W5X00_USE_HARDWARE_RESET
+
+   //
+   //  Software reset
+   //
+
+#if ETHERNET_CHIP == WIZNET_W5500
+   w5x00WriteReg(0, 0x04, 0x80);
+#else
+   w5x00WriteReg(0, 0, 0x80);
+#endif
+
+#endif   // W5X00_USE_HARDWARE_RESET
+
+   w5x00ResetEndTime = millis() + W5X00_POST_RESET_DELAY;
+}
+
+void w5x00Init()
+{
+   W5X00_INIT_CS;
+
+   w5x00Reset();
+}
+
+bool w5x00IsReady (void)
+{
+   return (millis() > w5x00ResetEndTime);
+}
+
+bool w5x00Configure (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_t gwAddr[])
 {
    bool chipAvailable = true;
-
-   W5X00_INIT_CS;
 
    W5X00_ASSERT_CS;
 
@@ -99,16 +153,10 @@ bool w5x00Init()
 
    W5X00_DEASSERT_CS;
 
-  return chipAvailable;
-}
+  if (!chipAvailable)
+    return false;
 
-void w5x00Config (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_t gwAddr[])
-{
    uint8_t idx;
-
-#if ETHERNET_CHIP == WIZNET_W5500
-   uint8_t controlByte;
-#endif
 
    for (idx = 0; idx < 4; ++idx)
    {
@@ -121,7 +169,7 @@ void w5x00Config (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_
       registerBuffer[idx + W5X00_MAC_ADDR_POS] = macAddr[idx];
 
    // Send the configuration data to the Ethernet chip
-   for (idx = 0; idx < W5X00_REGISTER_BLOCK_SIZE; ++idx)
+   for (idx = 1; idx < W5X00_REGISTER_BLOCK_SIZE; ++idx)
 #if ETHERNET_CHIP == WIZNET_W5500
       w5x00WriteReg(idx, 0x04, registerBuffer[idx]);
 #else
@@ -129,6 +177,8 @@ void w5x00Config (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_
 #endif
 
 #if ETHERNET_CHIP == WIZNET_W5500
+   uint8_t controlByte;
+
    // Assign 2KB RX and TX memory per socket
    for (idx = 0; idx < 8; ++idx)
    {
@@ -137,11 +187,15 @@ void w5x00Config (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_
       w5x00WriteReg(0x1F, controlByte, 2);   //0x1F - Sn_TXBUF_SIZE
    }
 #endif
+
+   return true;
 }
 
 void w5x00End (void)
 {
    W5X00_END_CS;
+
+   w5x00ResetEndTime = 0xFFFFFFFFFFFFFFFF;
 }
 
 uint8_t w5x00ReadReg (uint16_t address, uint8_t cb)

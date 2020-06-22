@@ -48,8 +48,9 @@
 #endif
 
 
-bool w5x00Init (void);
-void w5x00Config (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_t gwAddr[]);
+void w5x00Init (void);
+bool w5x00IsReady (void);
+bool w5x00Configure (uint8_t macAddr[], uint8_t ipAddr[], uint8_t netMask[], uint8_t gwAddr[]);
 void w5x00End (void);
 
 uint8_t w5x00ReadReg (uint16_t address, uint8_t cb);
