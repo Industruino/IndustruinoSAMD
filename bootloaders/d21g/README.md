@@ -30,21 +30,21 @@ Make is available through XCode package.
 
 ## 2- Selecting available SAM-BA interfaces
 
-By default only USB is made available, but this parameter can be modified in sam_ba_monitor.h, line 31:
-
-Set the define SAM_BA_INTERFACE to
+For the serial interfaces set the SAM_BA_INTERFACE value inside `build_all_bootloaders.sh` to:
 * SAM_BA_UART_ONLY for only UART interface
 * SAM_BA_USBCDC_ONLY for only USB CDC interface
 * SAM_BA_BOTH_INTERFACES for enabling both the interfaces
 
+By default the USB CDC interface is enabled and the UART interface is disabled (SAM_BA_USBCDC_ONLY).
+
 The SAM_BA_NET_TFTP interface is also enabled by default: it uses the Industruino Ethernet Module connected to the Expansion Port.
-If no Industruino Ethernet Module is connected then the TFTP interface is automatically disabled.
+If no Industruino Ethernet Module is connected or the 'Eth Boot' jumper on the Industruino D21G top board is in the OFF position (default) then the TFTP interface is automatically disabled.
 The networking configuration is stored in the Industruino Ethernet Module FRAM memory chip.
 
 ## 3- Behaviour
 
 This bootloader implements the double-tap on Reset button.
-By quickly pressing this button two times, the board will reset and stay in bootloader, waiting for communication on either USB or USART.
+By quickly pressing this button two times, the board will reset and stay in bootloader, waiting for communication on either USB, USART or Ethernet (TFTP).
 
 ## 4- Description
 
@@ -58,7 +58,7 @@ USB and USART are using Generic Clock Generator 0 also.
 
 **Memory Mapping**
 
-Bootloader code will be located at 0x0 and executed before any applicative code.
+Bootloader code will be located at 0x0000 and executed before any application code.
 
 Applications compiled to be executed along with the bootloader will start at 0x4000 (see linker script bootloader_samd21x18.ld).
 
@@ -66,10 +66,10 @@ Before jumping to the application, the bootloader changes the VTOR register to u
 
 ## 5- How to build
 
-If not specified the makefile builds for **Industruino D21G**:
+The build script builds the bootloader for **Industruino D21G**:
 
 ```
-make
+build_all_bootloaders.sh
 ```
 
-if you want to make a custom bootloader for a derivative board you must supply all the necessary information in a `board_definitions_xxx.h` file, and add the corresponding case in `board_definitions.h`.
+If you want to make a custom bootloader for a derivative board you must supply all the necessary information in a `board_definitions_xxx.h` file, and add the corresponding case in `board_definitions.h`.
