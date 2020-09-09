@@ -20,8 +20,11 @@
 #ifndef __SDCARD_H__
 #define __SDCARD_H__
 
+#include <stdbool.h>
+
 
 void sdcardInit (void);
+bool sdCardSetSpiMode (void);
 
 
 #endif   // __SDCARD_H__

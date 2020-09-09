@@ -44,7 +44,14 @@ void netInit (void)
 
    sdcardInit();
    framInit();
+
+#if W5X00_USE_HARDWARE_RESET
    w5x00Init();
+   sdCardSetSpiMode();
+#else
+   sdCardSetSpiMode();
+   w5x00Init();
+#endif
 
    netcfgInit();
 }

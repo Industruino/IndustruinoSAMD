@@ -30,6 +30,7 @@
 
 #include "w5x00.h"
 #include "spi.h"
+#include "utils.h"
 
 #define W5X00_READ  (0x0F)
 #define W5X00_WRITE (0xF0)
@@ -120,6 +121,7 @@ void w5x00Reset()
 
 void w5x00Init()
 {
+   W5X00_DEASSERT_CS;
    W5X00_INIT_CS;
 
    w5x00Reset();
