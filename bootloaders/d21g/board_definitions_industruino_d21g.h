@@ -151,6 +151,13 @@
 #define SDCARD_CS_PORT                    (1U)   // Port B
 #define SDCARD_CS_PIN                     (8U)   // PB08
 
+
+/*
+ * TFTP configuration
+ */
+
+#define TFTP_COMMUNICATION_TIMEOUT        (7000ULL*48ULL)   // 7 seconds in system ticks
+
 /*
  * Networking configuration
  */

@@ -96,6 +96,10 @@ volatile uint16_t rxLEDPulse = 0; // time remaining for Rx LED pulse
 
 static uint8_t com_interface = 0xFF;
 
+#if SAM_BA_NET_INTERFACE == SAM_BA_NET_TFTP
+static uint64_t tftpCommunicationTimeoutTime = 0xFFFFFFFFFFFFFFFF;
+#endif
+
 void sam_ba_monitor_init(uint8_t ci)
 {
 #if SAM_BA_INTERFACE == SAM_BA_UART_ONLY  ||  SAM_BA_INTERFACE == SAM_BA_BOTH_INTERFACES
@@ -562,8 +566,7 @@ static uint32_t imageSize = 0UL;
 static bool sam_ba_monitor_loop_tftp(void)
 {
    bool dataReceived = false;
-
-   int8_t tftpStatus = tftpRun();
+   int8_t tftpStatus = (millis() > tftpCommunicationTimeoutTime ? TFTP_STATUS_ERROR_COMMUNICATION_TIMEOUT : tftpRun());
 
    if (tftpStatus == TFTP_STATUS_NO_TRAFFIC)
       return dataReceived;
@@ -653,7 +656,12 @@ static bool sam_ba_monitor_loop_tftp(void)
    }
 
    if (tftpSendResponse(tftpStatus))
+   {
+      if (dataReceived)
+         tftpCommunicationTimeoutTime = millis() + TFTP_COMMUNICATION_TIMEOUT;
+
       return dataReceived;
+   }
 
    tftpEnd();
 

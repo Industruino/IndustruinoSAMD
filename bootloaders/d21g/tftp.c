@@ -192,6 +192,9 @@ bool tftpSendResponse (int8_t status)
       // TFTP continues
       return true;
 
+   if (status == TFTP_STATUS_ERROR_COMMUNICATION_TIMEOUT)
+      return false;
+
    uint8_t txBuffer[100];
    uint8_t* txPtr = txBuffer;
    uint16_t packetSize;
